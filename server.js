@@ -1,55 +1,75 @@
 const express = require('express');
-const mysql = require('mysql');
+const mongoose = require('mongoose');
 const cors = require('cors');
-const bodyParser = require('body-parser');
+const Product = require('./models/Product');
+const User = require('./models/Users');
+
+
+require('dotenv').config(); // Load environment variables
 
 const app = express();
+
+// Middleware
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 
-const db = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  password: '', // your MySQL password
-  database: 'vue_crud_db'
+// Connect to MongoDB
+mongoose.connect(process.env.DATABASE_MONGO_DB, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log('MongoDB connected successfully'))
+.catch((err) => console.error('MongoDB connection error:', err));
+
+// Start the server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
 });
 
-db.connect(err => {
-  if (err) throw err;
-  console.log('Connected to MySQL');
+
+
+
+// Create a product
+app.post('/products', async (req, res) => {
+  try {
+    const product = new Product(req.body);
+    await product.save();
+    res.status(201).json(product);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
-// Routes
-app.get('/users', (req, res) => {
-  db.query('SELECT * FROM users', (err, results) => {
-    if (err) throw err;
-    res.send(results);
-  });
+// Get all products
+app.get('/products', async (req, res) => {
+  try {
+    const products = await Product.find();
+    res.json(products);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.post('/users', (req, res) => {
-  const { name, email } = req.body;
-  db.query('INSERT INTO users (name, email) VALUES (?, ?)', [name, email], (err, result) => {
-    if (err) throw err;
-    res.send({ id: result.insertId, name, email });
-  });
+
+
+// Create a new user
+app.post('/users', async (req, res) => {
+  try {
+    const user = new User(req.body);
+    await user.save();
+    res.status(201).json(user);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
-app.put('/users/:id', (req, res) => {
-  const { name, email } = req.body;
-  db.query('UPDATE users SET name = ?, email = ? WHERE id = ?', [name, email, req.params.id], (err) => {
-    if (err) throw err;
-    res.send({ id: req.params.id, name, email });
-  });
-});
-
-app.delete('/users/:id', (req, res) => {
-  db.query('DELETE FROM users WHERE id = ?', [req.params.id], (err) => {
-    if (err) throw err;
-    res.send({ message: 'Deleted' });
-  });
-});
-
-app.listen(3000, () => {
-  console.log('Server running on http://localhost:3000');
+// Get all users
+app.get('/users', async (req, res) => {
+  try {
+    const users = await User.find().select('-password'); // hide password
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
